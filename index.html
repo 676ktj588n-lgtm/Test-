@@ -1,0 +1,1058 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#2a2540">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}[hidden]{display:none!important}</style>
+<title>Mochi's Mealtime</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&family=Nunito:wght@500;700;800&display=swap">
+<style>
+/* Layout: one-screen phone game. HUD on a plum frame, a lit "room" panel whose wall
+   follows the clock, and a food tray within thumb reach at the bottom. */
+:root {
+  --frame: #2a2540;
+  --frame-2: #3a3358;
+  --frame-ink: #fff4ea;
+  --paper: #fff7ef;
+  --ink: #2b2438;
+  --muted: #7a6f86;
+  --salmon: #ff8f7a;
+  --copper: #e39a45;
+  --leaf: #5fae4e;
+  --danger: #e2565f;
+  --wall: #f6d6c2;
+  --sky-top: #ffc79a;
+  --sky-bot: #ffe7cf;
+  --floor: #c99a62;
+  --floor-2: #b4844f;
+  --night: 0;
+  --font-display: "Mochiy Pop One", "Nunito", ui-rounded, system-ui, sans-serif;
+  --font-body: "Nunito", ui-rounded, system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: light;
+}
+html { box-sizing: border-box; height: 100%; }
+*, *::before, *::after { box-sizing: inherit; }
+body {
+  height: 100%;
+  margin: 0;
+  background: var(--frame);
+  color: var(--frame-ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+button { font: inherit; color: inherit; touch-action: manipulation; cursor: pointer; }
+button:focus-visible { outline: 3px solid var(--copper); outline-offset: 2px; }
+
+#app {
+  height: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 10px;
+  padding-block: 10px 12px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+/* ---------- HUD ---------- */
+.hud { display: grid; gap: 8px; }
+.hud-row { display: flex; align-items: center; gap: 8px; }
+.pill {
+  background: var(--frame-2);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.clock { flex: 1; min-width: 0; text-align: center; line-height: 1.1; }
+.clock-time { font-family: var(--font-display); font-size: 22px; font-variant-numeric: tabular-nums; }
+.clock-phase { font-size: 12px; font-weight: 700; color: #cfc3e6; text-transform: uppercase; letter-spacing: .08em; }
+.icon-btn {
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 0; background: var(--frame-2);
+  display: grid; place-items: center; flex: none;
+}
+.icon-btn svg { width: 22px; height: 22px; }
+.meter { flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.meter svg { width: 22px; height: 22px; flex: none; }
+.bar { flex: 1; height: 12px; border-radius: 999px; background: #1d1930; overflow: hidden; }
+.bar i {
+  display: block; height: 100%; width: 60%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--copper), var(--salmon));
+  transition: width .4s ease, background .4s;
+}
+.bar.low i { background: var(--danger); }
+.happy-num { font-weight: 800; font-variant-numeric: tabular-nums; width: 3ch; text-align: right; }
+.score { font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; color: #ffd9a8; }
+
+/* ---------- Scene ---------- */
+.scene {
+  position: relative;
+  min-height: 0;
+  border-radius: 26px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 12px 12px, rgba(255,255,255,.22) 2px, transparent 2.5px) 0 0 / 28px 28px,
+    var(--wall);
+  transition: background-color 1s linear;
+  isolation: isolate;
+}
+.scene::after { /* night dimmer + lamp glow */
+  content: "";
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse 60% 50% at 50% 78%, rgba(255,196,120,.35), transparent 70%),
+              rgba(16,18,48,.45);
+  opacity: var(--night);
+  pointer-events: none;
+  z-index: 3;
+}
+.floor {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 24%;
+  background:
+    repeating-linear-gradient(90deg, transparent 0 58px, rgba(0,0,0,.08) 58px 60px),
+    linear-gradient(var(--floor), var(--floor-2));
+  border-top: 6px solid rgba(255,255,255,.35);
+  z-index: 0;
+}
+.window {
+  position: absolute; top: 6%; left: 6%;
+  width: 30%; max-width: 150px; aspect-ratio: 1 / 1.15;
+  border: 7px solid #fffaf4;
+  border-radius: 14px 14px 6px 6px;
+  background: linear-gradient(var(--sky-top), var(--sky-bot));
+  overflow: hidden;
+  box-shadow: 0 6px 0 -2px #e9dccd;
+  z-index: 0;
+}
+.window::before, .window::after { content: ""; position: absolute; background: #fffaf4; }
+.window::before { left: 50%; top: 0; bottom: 0; width: 5px; transform: translateX(-50%); }
+.window::after { top: 50%; left: 0; right: 0; height: 5px; transform: translateY(-50%); }
+.orb {
+  position: absolute; width: 26%; aspect-ratio: 1; border-radius: 50%;
+  background: #fff1b8; box-shadow: 0 0 18px 6px rgba(255,236,160,.8);
+  transform: translate(-50%, -50%);
+}
+.orb.moon { background: #f2f0ff; box-shadow: 0 0 14px 4px rgba(220,220,255,.6); }
+.orb.moon::after {
+  content: ""; position: absolute; inset: -8% -8% auto auto; width: 70%; height: 70%;
+  border-radius: 50%; background: var(--sky-top);
+}
+
+.cat-wrap {
+  position: absolute; left: 50%; bottom: 6%;
+  height: 68%; max-width: 92%; aspect-ratio: 300 / 320;
+  transform: translateX(-50%);
+  z-index: 1;
+  border: 0; background: none; padding: 0;
+}
+.cat-wrap svg { width: 100%; height: 100%; display: block; overflow: visible; }
+
+.bowl {
+  position: absolute; left: 50%; bottom: 3%;
+  width: 28%; max-width: 132px;
+  transform: translateX(-50%);
+  z-index: 2;
+  pointer-events: none;
+}
+.bowl > svg { display: block; width: 100%; }
+.bowl-food {
+  position: absolute; left: 50%; bottom: 48%; width: 52%;
+  transform: translate(-50%, 0) scale(0);
+  transition: transform .2s ease;
+}
+.bowl-food.show { transform: translate(-50%, 0) scale(1); }
+.bowl-food.eaten { transform: translate(-50%, 30%) scale(0); transition: transform 1s ease-in; }
+.bowl-food svg { width: 100%; display: block; }
+
+/* Thought bubble */
+.bubble {
+  position: absolute; top: 5%; right: 5%;
+  width: min(48%, 210px);
+  background: var(--paper); color: var(--ink);
+  border-radius: 22px;
+  padding: 10px 12px 12px;
+  display: grid; justify-items: center; gap: 4px;
+  box-shadow: 0 6px 0 rgba(43,36,56,.12);
+  z-index: 4;
+  transform-origin: 20% 100%;
+  animation: pop .35s cubic-bezier(.3,1.6,.5,1);
+}
+.bubble::before, .bubble::after {
+  content: ""; position: absolute; background: var(--paper); border-radius: 50%;
+}
+.bubble::before { width: 18px; height: 18px; left: 14%; bottom: -14px; }
+.bubble::after { width: 10px; height: 10px; left: 6%; bottom: -28px; }
+.bubble.shake { animation: shake .4s; }
+.ring { position: relative; width: 74px; height: 74px; }
+.ring svg.track { position: absolute; inset: 0; transform: rotate(-90deg); }
+.ring .want { position: absolute; inset: 13px; display: grid; place-items: center; transition: filter .4s, opacity .4s; }
+.ring .want svg { width: 100%; height: 100%; }
+.ring.secret .want { filter: blur(7px) grayscale(1); opacity: .45; }
+.ring .q {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  font-family: var(--font-display); font-size: 28px; color: var(--muted);
+  opacity: 0; transition: opacity .3s;
+}
+.ring.secret .q { opacity: 1; }
+.hint { margin: 0; font-weight: 800; font-size: 14px; line-height: 1.25; text-align: center; text-wrap: balance; }
+.bubble.zzz { width: auto; padding: 10px 18px 12px; }
+.bubble.zzz .hint { font-family: var(--font-display); font-size: 18px; color: var(--muted); }
+
+.floater {
+  position: absolute; left: 50%; top: 28%;
+  transform: translateX(-50%);
+  font-family: var(--font-display); font-size: 20px;
+  color: var(--paper);
+  background: rgba(43,36,56,.82);
+  border-radius: 18px;
+  padding: 8px 16px 9px;
+  white-space: nowrap;
+  z-index: 5; pointer-events: none;
+  animation: floatUp 1.5s ease-out forwards;
+}
+.floater.bad { color: #ffc2bd; background: rgba(120,30,48,.85); }
+.floater small { display: block; font-family: var(--font-body); font-weight: 800; font-size: 14px; text-align: center; }
+.heart {
+  position: absolute; width: 26px; height: 26px; z-index: 5; pointer-events: none;
+  animation: heartUp 1.4s ease-out forwards;
+}
+
+/* ---------- Tray ---------- */
+.tray { display: grid; gap: 8px; }
+.foods { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.food {
+  border: 0; border-radius: 18px;
+  background: var(--paper); color: var(--ink);
+  padding: 8px 4px 7px;
+  display: grid; justify-items: center; gap: 2px;
+  box-shadow: 0 4px 0 #cdbfd8;
+  transition: transform .08s, box-shadow .08s;
+}
+.food:active { transform: translateY(3px); box-shadow: 0 1px 0 #cdbfd8; }
+.food svg { width: 40px; height: 40px; }
+.food span { font-weight: 800; font-size: 13px; }
+.tray-note { margin: 0; text-align: center; font-size: 13px; color: #cfc3e6; font-weight: 700; }
+
+.flyer { position: fixed; width: 48px; height: 48px; z-index: 40; pointer-events: none; }
+.flyer svg { width: 100%; height: 100%; }
+
+/* ---------- Cat parts ---------- */
+.catsvg [data-p] { display: none; }
+.catsvg[data-eyes="open"] [data-p="eyes-open"],
+.catsvg[data-eyes="happy"] [data-p="eyes-happy"],
+.catsvg[data-eyes="closed"] [data-p="eyes-closed"],
+.catsvg[data-eyes="annoyed"] [data-p="eyes-annoyed"],
+.catsvg[data-mouth="idle"] [data-p="mouth-idle"],
+.catsvg[data-mouth="open"] [data-p="mouth-open"],
+.catsvg[data-mouth="frown"] [data-p="mouth-frown"],
+.catsvg[data-blush="1"] [data-p="blush"],
+.catsvg[data-sleep="1"] [data-p="zzz"] { display: inline; }
+#catHead { transform-box: fill-box; transform-origin: 50% 95%; transition: transform .25s; }
+#catBody { transform-box: fill-box; transform-origin: 50% 100%; animation: breathe 3.2s ease-in-out infinite; }
+.catsvg[data-sleep="1"] #catBody { animation-duration: 5s; }
+.catsvg[data-sleep="1"] #catHead { transform: translateY(10px) rotate(-6deg); }
+#tail { transform-box: fill-box; transform-origin: 0% 100%; animation: sway 3s ease-in-out infinite; }
+.catsvg[data-imp="1"] #tail { animation-duration: .7s; }
+#cat.eat #catHead { animation: dip .38s ease-in-out 4 alternate; }
+#cat.turn #catHead { animation: turnAway 1s ease-in-out; }
+#cat.wiggle #catHead { animation: wiggle .5s ease-in-out; }
+#cat.pet #catHead { animation: nuzzle .6s ease-in-out 2; }
+[data-p="zzz"] text { font-family: var(--font-display); fill: var(--paper); stroke: rgba(43,36,56,.35); stroke-width: 1; }
+[data-p="zzz"] text:nth-child(1) { animation: zz 2.4s ease-in-out infinite; }
+[data-p="zzz"] text:nth-child(2) { animation: zz 2.4s ease-in-out .8s infinite; }
+[data-p="zzz"] text:nth-child(3) { animation: zz 2.4s ease-in-out 1.6s infinite; }
+
+/* ---------- Overlays ---------- */
+.overlay {
+  position: fixed; inset: 0; z-index: 50;
+  display: grid; place-items: center;
+  padding: 16px max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px));
+  background: rgba(20,16,36,.62);
+  -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px);
+  overflow-y: auto;
+}
+.card {
+  width: 100%; max-width: 380px;
+  background: var(--paper); color: var(--ink);
+  border-radius: 26px;
+  padding: 22px 20px 20px;
+  display: grid; gap: 12px;
+  box-shadow: 0 10px 0 rgba(0,0,0,.18);
+  animation: pop .35s cubic-bezier(.3,1.4,.5,1);
+}
+.card h1, .card h2 { font-family: var(--font-display); font-weight: 400; margin: 0; line-height: 1.15; text-wrap: balance; }
+.card h1 { font-size: 30px; }
+.card h2 { font-size: 24px; }
+.card p { margin: 0; line-height: 1.45; color: #4a4058; }
+.card .eyebrow { font-size: 12px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--copper); }
+.card ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.card li { display: grid; grid-template-columns: 34px 1fr; gap: 10px; align-items: center; line-height: 1.35; color: #4a4058; }
+.card li svg { width: 34px; height: 34px; }
+.primary {
+  border: 0; border-radius: 16px;
+  background: var(--salmon); color: #fff;
+  font-family: var(--font-display); font-size: 18px;
+  padding: 14px 16px;
+  box-shadow: 0 5px 0 #d86b58;
+}
+.primary:active { transform: translateY(3px); box-shadow: 0 2px 0 #d86b58; }
+.secondary {
+  border: 2px solid #e4d7ea; border-radius: 16px; background: transparent; color: var(--ink);
+  font-weight: 800; padding: 11px 16px;
+}
+.routine { display: grid; gap: 0; border-radius: 16px; overflow: hidden; border: 2px solid #eee2f0; }
+.routine div { display: grid; grid-template-columns: 92px 1fr; gap: 10px; padding: 8px 12px; font-size: 14px; line-height: 1.35; }
+.routine div:nth-child(odd) { background: #fbeee4; }
+.routine b { font-variant-numeric: tabular-nums; }
+.routine .now { outline: 3px solid var(--copper); outline-offset: -3px; }
+.clues { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; font-size: 13px; color: #4a4058; }
+.clues i { font-style: normal; font-weight: 800; color: var(--ink); }
+.stats { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; font-size: 15px; color: #4a4058; }
+.stats b { color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
+.stars { display: flex; gap: 6px; justify-content: center; }
+.stars svg { width: 44px; height: 44px; }
+.hero-cat { width: 150px; justify-self: center; margin: -4px 0 -6px; }
+.row { display: flex; gap: 10px; }
+.row > * { flex: 1; }
+
+/* ---------- Motion ---------- */
+@keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+@keyframes floatUp { 0% { opacity: 0; transform: translate(-50%, 10px) scale(.8); } 15% { opacity: 1; transform: translate(-50%, 0) scale(1); } 100% { opacity: 0; transform: translate(-50%, -70px); } }
+@keyframes heartUp { 0% { opacity: 0; transform: translate(0,0) scale(.4); } 20% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx), -140px) scale(1.1); } }
+@keyframes breathe { 0%,100% { transform: scaleY(1); } 50% { transform: scaleY(1.018); } }
+@keyframes sway { 0%,100% { transform: rotate(-4deg); } 50% { transform: rotate(7deg); } }
+@keyframes dip { from { transform: translateY(0); } to { transform: translateY(30px) rotate(2deg); } }
+@keyframes turnAway { 0%,100% { transform: none; } 25%,75% { transform: translateX(-14px) rotate(-14deg); } }
+@keyframes wiggle { 0%,100% { transform: none; } 30% { transform: rotate(8deg); } 70% { transform: rotate(-8deg); } }
+@keyframes nuzzle { 0%,100% { transform: none; } 50% { transform: rotate(6deg) translateY(4px); } }
+@keyframes zz { 0% { opacity: 0; transform: translate(0,0); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(14px,-26px); } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+@media (max-height: 640px) {
+  .food svg { width: 32px; height: 32px; }
+  .food { padding: 6px 4px; }
+  .tray-note { display: none; }
+  .clock-time { font-size: 19px; }
+}
+</style>
+
+<div id="app">
+  <header class="hud">
+    <div class="hud-row">
+      <span class="pill" id="dayPill">Day 1</span>
+      <div class="clock" aria-live="polite">
+        <div class="clock-time" id="clockTime">7:00 AM</div>
+        <div class="clock-phase" id="clockPhase">Breakfast</div>
+      </div>
+      <button class="icon-btn" id="routineBtn" aria-label="Mochi's routine">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff4ea" stroke-width="2.2" stroke-linecap="round"><rect x="5" y="3" width="14" height="18" rx="3"/><path d="M9 8h6M9 12h6M9 16h3"/></svg>
+      </button>
+      <button class="icon-btn" id="soundBtn" aria-label="Sound on">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff4ea" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l5-4v14l-5-4H4z" fill="#fff4ea"/><path id="soundWaves" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>
+      </button>
+    </div>
+    <div class="hud-row">
+      <div class="meter">
+        <svg viewBox="0 0 48 48"><path d="M24 41S6 30 6 18a9 9 0 0 1 18-2 9 9 0 0 1 18 2c0 12-18 23-18 23z" fill="#ff8f7a"/></svg>
+        <div class="bar" id="bar" role="meter" aria-label="Mochi's happiness" aria-valuemin="0" aria-valuemax="100"><i id="barFill"></i></div>
+        <span class="happy-num" id="happyNum">60</span>
+      </div>
+      <span class="score"><span id="score">0</span> purrs</span>
+    </div>
+  </header>
+
+  <main class="scene" id="scene">
+    <div class="window" id="window"><div class="orb" id="orb"></div></div>
+    <div class="floor"></div>
+
+    <button class="cat-wrap" id="catBtn" aria-label="Pet Mochi">
+      <svg id="cat" class="catsvg" viewBox="0 0 300 320" data-eyes="open" data-mouth="idle" data-blush="0" data-sleep="0" data-imp="0" aria-hidden="true">
+        <defs>
+          <filter id="fluff" filterUnits="userSpaceOnUse" x="-20" y="-20" width="340" height="360">
+            <feTurbulence type="fractalNoise" baseFrequency="0.11" numOctaves="2" seed="7" result="n"/>
+            <feDisplacementMap in="SourceGraphic" in2="n" scale="10" xChannelSelector="R" yChannelSelector="G"/>
+          </filter>
+          <radialGradient id="furHead" cx="50%" cy="38%" r="62%">
+            <stop offset="0" stop-color="#ffffff"/><stop offset=".7" stop-color="#f7f7fa"/><stop offset="1" stop-color="#dcdfe8"/>
+          </radialGradient>
+          <radialGradient id="furBody" cx="50%" cy="30%" r="70%">
+            <stop offset="0" stop-color="#ffffff"/><stop offset=".65" stop-color="#f4f4f8"/><stop offset="1" stop-color="#d5d8e3"/>
+          </radialGradient>
+          <radialGradient id="iris" cx="45%" cy="40%" r="60%">
+            <stop offset="0" stop-color="#ffd27a"/><stop offset=".6" stop-color="#ee9a35"/><stop offset="1" stop-color="#c46d1f"/>
+          </radialGradient>
+        </defs>
+        <ellipse cx="150" cy="306" rx="118" ry="13" fill="#000" opacity=".14"/>
+        <g id="tail" filter="url(#fluff)">
+          <path d="M232 292 C 286 296 298 246 272 214" fill="none" stroke="#d8dbe5" stroke-width="34" stroke-linecap="round"/>
+          <path d="M232 292 C 286 296 298 246 272 214" fill="none" stroke="#fbfbfd" stroke-width="28" stroke-linecap="round"/>
+        </g>
+        <g id="catBody">
+          <g filter="url(#fluff)">
+            <ellipse cx="150" cy="238" rx="108" ry="76" fill="url(#furBody)" stroke="#d9dce6" stroke-width="3"/>
+            <ellipse cx="150" cy="212" rx="62" ry="50" fill="#ffffff"/>
+            <ellipse cx="116" cy="300" rx="27" ry="15" fill="#fbfbfd" stroke="#d9dce6" stroke-width="3"/>
+            <ellipse cx="184" cy="300" rx="27" ry="15" fill="#fbfbfd" stroke="#d9dce6" stroke-width="3"/>
+          </g>
+          <path d="M108 302v-7M118 303v-8M128 302v-7M172 302v-7M182 303v-8M192 302v-7" stroke="#d2d5df" stroke-width="2.5" stroke-linecap="round"/>
+        </g>
+        <g id="catHead">
+          <g filter="url(#fluff)">
+            <path d="M70 104 L80 40 L126 70 Z" fill="#f8f8fb" stroke="#d9dce6" stroke-width="10" stroke-linejoin="round"/>
+            <path d="M230 104 L220 40 L174 70 Z" fill="#f8f8fb" stroke="#d9dce6" stroke-width="10" stroke-linejoin="round"/>
+            <ellipse cx="150" cy="126" rx="93" ry="77" fill="url(#furHead)" stroke="#d9dce6" stroke-width="3"/>
+            <ellipse cx="98" cy="154" rx="46" ry="34" fill="#fdfdfe"/>
+            <ellipse cx="202" cy="154" rx="46" ry="34" fill="#fdfdfe"/>
+          </g>
+          <path d="M86 88 L90 58 L114 74 Z" fill="#f6bcc6" stroke="#f6bcc6" stroke-width="5" stroke-linejoin="round"/>
+          <path d="M214 88 L210 58 L186 74 Z" fill="#f6bcc6" stroke="#f6bcc6" stroke-width="5" stroke-linejoin="round"/>
+          <g data-p="blush"><ellipse cx="86" cy="152" rx="16" ry="9" fill="#ffb0bf" opacity=".7"/><ellipse cx="214" cy="152" rx="16" ry="9" fill="#ffb0bf" opacity=".7"/></g>
+          <g data-p="eyes-open">
+            <circle cx="111" cy="122" r="20" fill="url(#iris)" stroke="#a65a1a" stroke-width="1.5"/>
+            <circle cx="189" cy="122" r="20" fill="url(#iris)" stroke="#a65a1a" stroke-width="1.5"/>
+            <ellipse cx="111" cy="123" rx="8" ry="13" fill="#2a2230"/>
+            <ellipse cx="189" cy="123" rx="8" ry="13" fill="#2a2230"/>
+            <circle cx="104" cy="114" r="5" fill="#fff"/><circle cx="182" cy="114" r="5" fill="#fff"/>
+            <circle cx="116" cy="130" r="2.2" fill="#fff" opacity=".8"/><circle cx="194" cy="130" r="2.2" fill="#fff" opacity=".8"/>
+          </g>
+          <g data-p="eyes-happy" fill="none" stroke="#3a3142" stroke-width="5.5" stroke-linecap="round">
+            <path d="M93 127 Q111 106 129 127"/><path d="M171 127 Q189 106 207 127"/>
+          </g>
+          <g data-p="eyes-closed" fill="none" stroke="#3a3142" stroke-width="5" stroke-linecap="round">
+            <path d="M93 122 Q111 134 129 122"/><path d="M171 122 Q189 134 207 122"/>
+          </g>
+          <g data-p="eyes-annoyed">
+            <path d="M91 120 A20 20 0 0 0 131 120 Z" fill="url(#iris)"/>
+            <path d="M169 120 A20 20 0 0 0 209 120 Z" fill="url(#iris)"/>
+            <ellipse cx="111" cy="127" rx="5" ry="8" fill="#2a2230"/><ellipse cx="189" cy="127" rx="5" ry="8" fill="#2a2230"/>
+            <path d="M88 116 L134 121 M166 121 L212 116" stroke="#3a3142" stroke-width="5" stroke-linecap="round"/>
+          </g>
+          <path d="M140 146 L160 146 L150 157 Z" fill="#f29fb1" stroke="#f29fb1" stroke-width="4" stroke-linejoin="round"/>
+          <path data-p="mouth-idle" d="M150 157 Q150 168 139 167 M150 157 Q150 168 161 167" fill="none" stroke="#8b7f92" stroke-width="3" stroke-linecap="round"/>
+          <g data-p="mouth-open">
+            <path d="M136 162 Q150 190 164 162 Q150 168 136 162 Z" fill="#b84d63" stroke="#8b7f92" stroke-width="2.5" stroke-linejoin="round"/>
+            <ellipse cx="150" cy="176" rx="7" ry="4.5" fill="#f28ea0"/>
+          </g>
+          <path data-p="mouth-frown" d="M138 172 Q150 162 162 172" fill="none" stroke="#8b7f92" stroke-width="3" stroke-linecap="round"/>
+          <g stroke="#c5c9d4" stroke-width="2" stroke-linecap="round">
+            <path d="M100 156 L40 146 M100 163 L36 164 M102 170 L44 182"/>
+            <path d="M200 156 L260 146 M200 163 L264 164 M198 170 L256 182"/>
+          </g>
+          <g data-p="zzz"><text x="226" y="62" font-size="24">z</text><text x="246" y="40" font-size="30">z</text><text x="268" y="16" font-size="36">Z</text></g>
+        </g>
+      </svg>
+    </button>
+
+    <div class="bowl" id="bowl">
+      <div class="bowl-food" id="bowlFood"></div>
+      <svg viewBox="0 0 120 52" aria-hidden="true">
+        <path d="M4 16 Q8 46 30 48 H90 Q112 46 116 16 Z" fill="#ff8f7a"/>
+        <ellipse cx="60" cy="16" rx="56" ry="12" fill="#e9786a"/>
+        <ellipse cx="60" cy="16" rx="47" ry="8" fill="#c9604f"/>
+        <text x="60" y="38" text-anchor="middle" font-family="Mochiy Pop One, Nunito, sans-serif" font-size="11" fill="#fff7ef">MOCHI</text>
+      </svg>
+    </div>
+
+    <div class="bubble" id="bubble" hidden>
+      <div class="ring" id="ring">
+        <svg class="track" viewBox="0 0 74 74"><circle cx="37" cy="37" r="33" fill="none" stroke="#efe3ea" stroke-width="6"/><circle id="ringArc" cx="37" cy="37" r="33" fill="none" stroke="#5fae4e" stroke-width="6" stroke-linecap="round" stroke-dasharray="207.3" stroke-dashoffset="0"/></svg>
+        <div class="want" id="want"></div>
+        <div class="q">?</div>
+      </div>
+      <p class="hint" id="hint"></p>
+    </div>
+  </main>
+
+  <footer class="tray">
+    <div class="foods" id="foods"></div>
+    <p class="tray-note">Tap Mochi to give him a cuddle</p>
+  </footer>
+</div>
+
+<div class="overlay" id="overlay" hidden><div class="card" id="card"></div></div>
+
+<script>
+(() => {
+  'use strict';
+
+  /* ---------- Data ---------- */
+  const ICON = {
+    kibble: '<svg viewBox="0 0 48 48"><path d="M5 25h38l-4 12a5 5 0 0 1-5 4H14a5 5 0 0 1-5-4z" fill="#5d7fb8"/><g fill="#b2733f"><circle cx="14" cy="23" r="4"/><circle cx="21" cy="20.5" r="4.2"/><circle cx="34.5" cy="23" r="3.8"/></g><g fill="#d08f55"><circle cx="28" cy="21.5" r="4"/><circle cx="18" cy="25" r="3.4"/><circle cx="26" cy="25" r="3.6"/></g><ellipse cx="24" cy="25.5" rx="19" ry="2.2" fill="#4a6aa0"/></svg>',
+    pate: '<svg viewBox="0 0 48 48"><rect x="9" y="16" width="30" height="25" rx="4" fill="#cfd5df"/><rect x="9" y="22" width="30" height="13" fill="#ff8f7a"/><path d="M20 28.5a3.5 3.5 0 1 1 5 3l4 3" stroke="#fff" stroke-width="2.6" fill="none" stroke-linecap="round"/><ellipse cx="24" cy="16" rx="15" ry="4.5" fill="#e9edf3" stroke="#aab3c2" stroke-width="1.5"/><ellipse cx="24" cy="16" rx="11.5" ry="2.8" fill="#d9a47a"/></svg>',
+    salmon: '<svg viewBox="0 0 48 48"><path d="M4 24c6-10 21-12 31-3l8-7v20l-8-7c-10 9-25 7-31-3z" fill="#ff9a7e"/><path d="M15 18.5c2.4 3.5 2.4 7.5 0 11M21 17c2.6 4.5 2.6 9.5 0 14M27 17.5c2.4 4 2.4 9 0 13" stroke="#ffd4c4" stroke-width="2.2" fill="none" stroke-linecap="round"/><circle cx="9.5" cy="22.5" r="2" fill="#2a2230"/></svg>',
+    water: '<svg viewBox="0 0 48 48"><path d="M24 5C18 15 11 22 11 30a13 13 0 0 0 26 0c0-8-7-15-13-25z" fill="#5cb8e6"/><path d="M17.5 30a7 7 0 0 0 6 7" stroke="#dff4ff" stroke-width="3.2" fill="none" stroke-linecap="round"/></svg>',
+    treats: '<svg viewBox="0 0 48 48"><path d="M12 14h24l3 27H9z" fill="#ffc76b"/><rect x="10.5" y="9" width="27" height="7" rx="2.5" fill="#e8a53f"/><path d="M16 28c3.5-4.5 9.5-4.5 13 0-3.5 4.5-9.5 4.5-13 0zm13 0 5-3.5v7z" fill="#b5652f"/></svg>',
+    grass: '<svg viewBox="0 0 48 48"><path d="M18 29c-2-8-1-14 1-19M22.5 29c0-8 1-15 3-21M27 29c1-7 3-12 7-16M31 29c1-5 2.5-8 5-10M20 29c-3-5-6-8-10-9" stroke="#5fae4e" stroke-width="3.2" fill="none" stroke-linecap="round"/><path d="M13 31h22l-3 11H16z" fill="#d98a5b"/><rect x="11" y="28" width="26" height="5.5" rx="2" fill="#c27448"/></svg>',
+    cuddle: '<svg viewBox="0 0 48 48"><path d="M24 41S6 30 6 18a9 9 0 0 1 18-2 9 9 0 0 1 18 2c0 12-18 23-18 23z" fill="#ff8f9e"/><path d="M14 17a5 5 0 0 1 5-4" stroke="#ffd3da" stroke-width="3" fill="none" stroke-linecap="round"/></svg>',
+    star: '<svg viewBox="0 0 48 48"><path d="M24 4l6 13 14 1.5-10.5 9.5 3 14L24 35l-12.5 7 3-14L4 18.5 18 17z" fill="#ffc34d" stroke="#e39a45" stroke-width="2" stroke-linejoin="round"/></svg>',
+    starOff: '<svg viewBox="0 0 48 48"><path d="M24 4l6 13 14 1.5-10.5 9.5 3 14L24 35l-12.5 7 3-14L4 18.5 18 17z" fill="#eadfe8" stroke="#d6c8d9" stroke-width="2" stroke-linejoin="round"/></svg>',
+  };
+  const ITEMS = {
+    kibble: { name: 'Kibble', hints: ['Something crunchy…', 'Crunchy bits, please!', 'I want to hear a crunch.'] },
+    pate:   { name: 'Chicken pâté', hints: ['Something soft and meaty…', 'Smooth chicken, please!', 'Something from a can…'] },
+    salmon: { name: 'Salmon', hints: ['I smell the sea…', 'Something pink and fishy…', 'Fish, fish, fish!'] },
+    water:  { name: 'Water', hints: ['So thirsty…', 'My mouth is all dry…', 'Something fresh and wet…'] },
+    treats: { name: 'Treats', hints: ["I've been a good boy…", 'Just one little snack?', 'Shake the crinkly bag!'] },
+    grass:  { name: 'Cat grass', hints: ['My tummy feels funny…', 'Something green to nibble…', 'Leafy, please.'] },
+    cuddle: { name: 'Cuddle', hints: ['Notice me…', 'Pet me, human!', 'I need some love…'] },
+  };
+  const TRAY = ['kibble', 'pate', 'salmon', 'water', 'treats', 'grass'];
+  const PHASES = [
+    { name: 'Breakfast',    from: 7,    to: 10,   pool: ['kibble', 'pate'],                      note: 'Kibble or chicken pâté' },
+    { name: 'Late morning', from: 10,   to: 13,   pool: ['water', 'grass', 'cuddle'],            note: 'Water, cat grass or a cuddle' },
+    { name: 'Nap time',     from: 13,   to: 14.5, sleep: true,                                   note: 'Let him sleep' },
+    { name: 'Afternoon',    from: 14.5, to: 18,   pool: ['treats', 'water', 'grass', 'cuddle'],  note: 'Treats, water, cat grass or a cuddle' },
+    { name: 'Dinner',       from: 18,   to: 21,   pool: ['salmon', 'pate'],                      note: 'Salmon or chicken pâté' },
+    { name: 'Evening',      from: 21,   to: 22.5, pool: ['treats', 'water', 'cuddle'],           note: 'Treats, water or a cuddle' },
+    { name: 'Bedtime',      from: 22.5, to: 24,   sleep: true,                                   note: 'Lights out, no snacks' },
+  ];
+  const HOUR_MS = 7500;     // one in-game hour lasts 7.5 real seconds
+  const DAY_START = 7, DAY_END = 23;
+  const RING_C = 207.3;
+
+  const $ = (id) => document.getElementById(id);
+  const cat = $('cat'), scene = $('scene'), bubble = $('bubble'), ring = $('ring'), ringArc = $('ringArc');
+  const want = $('want'), hintEl = $('hint'), bowlFood = $('bowlFood'), bowl = $('bowl');
+  const overlay = $('overlay'), card = $('card');
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const pick = (a) => a[Math.floor(Math.random() * a.length)];
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+  /* ---------- Storage (per-viewer best score) ---------- */
+  const loadBest = () => { try { return +localStorage.getItem('mochi-best') || 0; } catch (e) { return 0; } };
+  const saveBest = (v) => { try { localStorage.setItem('mochi-best', String(v)); } catch (e) {} };
+
+  /* ---------- Sound ---------- */
+  let AC = null, soundOn = true;
+  function ensureAudio() {
+    if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { AC = null; } }
+    if (AC && AC.state === 'suspended') AC.resume().catch(() => {});
+  }
+  function env(g, t, peak, dur) {
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(peak, t + 0.04);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  }
+  function meow(kind) {
+    if (!AC || !soundOn) return;
+    const t = AC.currentTime, o = AC.createOscillator(), f = AC.createBiquadFilter(), g = AC.createGain();
+    const base = kind === 'grump' ? 330 : kind === 'happy' ? 640 : 520;
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(base, t);
+    o.frequency.linearRampToValueAtTime(base * (kind === 'grump' ? 1.15 : 1.55), t + 0.18);
+    o.frequency.exponentialRampToValueAtTime(base * 0.75, t + 0.55);
+    f.type = 'bandpass'; f.Q.value = 2.2;
+    f.frequency.setValueAtTime(800, t); f.frequency.linearRampToValueAtTime(1700, t + 0.2); f.frequency.linearRampToValueAtTime(650, t + 0.55);
+    env(g, t, 0.22, 0.6);
+    o.connect(f).connect(g).connect(AC.destination); o.start(t); o.stop(t + 0.65);
+  }
+  function noiseBuf(sec) {
+    const b = AC.createBuffer(1, AC.sampleRate * sec, AC.sampleRate), d = b.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    return b;
+  }
+  function purr(dur = 1.6) {
+    if (!AC || !soundOn) return;
+    const t = AC.currentTime, src = AC.createBufferSource(), lp = AC.createBiquadFilter(), am = AC.createGain(), out = AC.createGain();
+    const lfo = AC.createOscillator(), depth = AC.createGain();
+    src.buffer = noiseBuf(dur); lp.type = 'lowpass'; lp.frequency.value = 260;
+    am.gain.value = 0.5; lfo.frequency.value = 26; depth.gain.value = 0.5;
+    lfo.connect(depth).connect(am.gain);
+    out.gain.setValueAtTime(0.0001, t); out.gain.exponentialRampToValueAtTime(0.5, t + 0.2); out.gain.setValueAtTime(0.5, t + dur - 0.3); out.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(lp).connect(am).connect(out).connect(AC.destination);
+    src.start(t); lfo.start(t); src.stop(t + dur); lfo.stop(t + dur);
+  }
+  function chomp() {
+    if (!AC || !soundOn) return;
+    for (let i = 0; i < 4; i++) {
+      const t = AC.currentTime + i * 0.38, s = AC.createBufferSource(), f = AC.createBiquadFilter(), g = AC.createGain();
+      s.buffer = noiseBuf(0.08); f.type = 'bandpass'; f.frequency.value = 1500 + Math.random() * 600; f.Q.value = 1.5;
+      env(g, t, 0.18, 0.07); s.connect(f).connect(g).connect(AC.destination); s.start(t);
+    }
+  }
+  function tone(freqs, type = 'sine', step = 0.09, vol = 0.12) {
+    if (!AC || !soundOn) return;
+    freqs.forEach((fq, i) => {
+      const t = AC.currentTime + i * step, o = AC.createOscillator(), g = AC.createGain();
+      o.type = type; o.frequency.value = fq; env(g, t, vol, 0.25);
+      o.connect(g).connect(AC.destination); o.start(t); o.stop(t + 0.3);
+    });
+  }
+  const buzz = () => tone([180, 140], 'square', 0.12, 0.05);
+  const chime = () => tone([880, 1175, 1568], 'triangle', 0.08, 0.12);
+  const buzzPhone = (ms) => { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} };
+
+  /* ---------- State ---------- */
+  let S = null;
+  function freshState() {
+    return { day: 1, hour: DAY_START, happy: 60, score: 0, running: false, paused: false, busy: false,
+             req: null, slots: [], last: null, lastPet: 0, temp: null, blinkUntil: 0, chomp: false, chompOpen: false,
+             stats: null, dayScore: 0 };
+  }
+  function makeSlots(day) {
+    const slots = [];
+    const add = (n, from, to) => {
+      for (let i = 0; i < n; i++) {
+        const w = (to - from) / n;
+        slots.push(from + w * (i + 0.5) + (Math.random() - 0.5) * w * 0.4);
+      }
+    };
+    add(1, 7.2, 7.8);
+    add(day < 2 ? 1 : 2, 10.1, 12.2);
+    add(day < 2 ? 1 : day < 3 ? 2 : 3, 14.7, 17.3);
+    add(1, 18.2, 18.9);
+    add(day < 3 ? 1 : 2, 21.0, 21.8);
+    return slots.sort((a, b) => a - b);
+  }
+  const patience = (day) => Math.max(0.9, 2.2 - (day - 1) * 0.25);
+  const revealAt = (day) => (day === 1 ? 0 : day === 2 ? 0.4 : 0.6);
+  const phaseAt = (h) => PHASES.find((p) => h >= p.from && h < p.to) || PHASES[PHASES.length - 1];
+  const asleep = () => !!phaseAt(S.hour).sleep && !S.req;
+
+  function setupDay() {
+    S.hour = DAY_START; S.slots = makeSlots(S.day); S.req = null; S.busy = false; S.dayScore = 0;
+    S.stats = { right: 0, mind: 0, wrong: 0, missed: 0, offtime: 0 };
+    hideBubble(); clearBowl(true);
+    $('dayPill').textContent = 'Day ' + S.day;
+    updateHUD(); updateEnvironment(true);
+  }
+
+  /* ---------- Requests ---------- */
+  function startReq() {
+    const ph = phaseAt(S.hour);
+    if (!ph.pool) return;
+    let pool = ph.pool.filter((x) => x !== S.lastItem);
+    if (!pool.length) pool = ph.pool;
+    const item = pick(pool);
+    S.lastItem = item;
+    const total = patience(S.day);
+    S.req = { item, total, left: total, revealed: revealAt(S.day) === 0, hint: pick(ITEMS[item].hints) };
+    showBubble();
+    setTemp({ mouth: 'open' }, 600);
+    meow('ask');
+  }
+  function showBubble() {
+    const r = S.req;
+    bubble.classList.remove('zzz');
+    ring.hidden = false;
+    want.innerHTML = ICON[r.item];
+    ring.classList.toggle('secret', !r.revealed);
+    hintEl.textContent = r.hint;
+    bubble.hidden = false;
+    bubble.style.animation = 'none'; void bubble.offsetWidth; bubble.style.animation = '';
+    updateBubble();
+  }
+  function showZzz() {
+    bubble.classList.add('zzz'); ring.hidden = true; hintEl.textContent = 'Zzz… nap time';
+    if (phaseAt(S.hour).name === 'Bedtime') hintEl.textContent = 'Zzz… goodnight';
+    bubble.hidden = false;
+  }
+  function hideBubble() { bubble.hidden = true; }
+  function updateBubble() {
+    const r = S.req; if (!r) return;
+    const f = clamp(r.left / r.total, 0, 1);
+    ringArc.setAttribute('stroke-dashoffset', String(RING_C * (1 - f)));
+    ringArc.setAttribute('stroke', f > 0.5 ? '#5fae4e' : f > 0.25 ? '#e39a45' : '#e2565f');
+    if (!r.revealed && 1 - f >= revealAt(S.day)) { r.revealed = true; ring.classList.remove('secret'); }
+  }
+  function resolveReq() { S.req = null; hideBubble(); }
+
+  /* ---------- Cat rendering ---------- */
+  function setTemp(mood, ms) { S.temp = Object.assign({}, mood, { until: performance.now() + ms }); }
+  function playCatAnim(cls, ms) {
+    cat.classList.remove('eat', 'turn', 'wiggle', 'pet'); void cat.getBoundingClientRect();
+    cat.classList.add(cls); setTimeout(() => cat.classList.remove(cls), ms);
+  }
+  let lastCat = '';
+  function renderCat(now) {
+    let eyes = 'open', mouth = 'idle', blush = 0, sleep = 0, imp = 0;
+    if (S.running && asleep()) { eyes = 'closed'; sleep = 1; }
+    else if (S.req) {
+      const f = S.req.left / S.req.total;
+      if (f < 0.3) { eyes = 'annoyed'; mouth = 'frown'; imp = 1; }
+    }
+    if (S.temp && now < S.temp.until) {
+      if (S.temp.eyes) eyes = S.temp.eyes;
+      if (S.temp.mouth) mouth = S.temp.mouth;
+      if (S.temp.blush) blush = 1;
+      sleep = 0;
+    }
+    if (S.chomp) mouth = S.chompOpen ? 'open' : 'idle';
+    if (eyes === 'open' && now < S.blinkUntil) eyes = 'closed';
+    const key = eyes + mouth + blush + sleep + imp;
+    if (key === lastCat) return;
+    lastCat = key;
+    cat.setAttribute('data-eyes', eyes); cat.setAttribute('data-mouth', mouth);
+    cat.setAttribute('data-blush', blush); cat.setAttribute('data-sleep', sleep); cat.setAttribute('data-imp', imp);
+  }
+  (function blinkLoop() {
+    if (S) S.blinkUntil = performance.now() + 140;
+    setTimeout(blinkLoop, 2200 + Math.random() * 3200);
+  })();
+
+  /* ---------- Effects ---------- */
+  function floater(text, sub, bad) {
+    const el = document.createElement('div');
+    el.className = 'floater' + (bad ? ' bad' : '');
+    el.textContent = text;
+    if (sub) { const s = document.createElement('small'); s.textContent = sub; el.appendChild(s); }
+    scene.appendChild(el); setTimeout(() => el.remove(), 1600);
+  }
+  function hearts(n) {
+    const rect = scene.getBoundingClientRect();
+    for (let i = 0; i < n; i++) {
+      const h = document.createElement('div');
+      h.className = 'heart'; h.innerHTML = ICON.cuddle;
+      h.style.left = (rect.width * (0.35 + Math.random() * 0.3)) + 'px';
+      h.style.top = (rect.height * (0.35 + Math.random() * 0.15)) + 'px';
+      h.style.setProperty('--dx', ((Math.random() - 0.5) * 120) + 'px');
+      h.style.animationDelay = (i * 0.08) + 's';
+      scene.appendChild(h); setTimeout(() => h.remove(), 1700);
+    }
+  }
+  function showBowl(id) { bowlFood.innerHTML = ICON[id]; bowlFood.className = 'bowl-food show'; }
+  function clearBowl(instant, eaten) {
+    if (instant) { bowlFood.className = 'bowl-food'; bowlFood.innerHTML = ''; return; }
+    bowlFood.className = 'bowl-food' + (eaten ? ' eaten' : '');
+    setTimeout(() => { if (!bowlFood.classList.contains('show')) bowlFood.innerHTML = ''; }, 1000);
+  }
+  function flyToBowl(id, fromEl) {
+    return new Promise((res) => {
+      const a = fromEl.getBoundingClientRect(), b = bowl.getBoundingClientRect();
+      const ax = a.left + a.width / 2, ay = a.top + a.height / 2;
+      const dx = b.left + b.width / 2 - ax, dy = b.top + b.height * 0.1 - ay;
+      if (reduced || !document.body.animate) { showBowl(id); res(); return; }
+      const f = document.createElement('div');
+      f.className = 'flyer'; f.innerHTML = ICON[id];
+      f.style.left = (ax - 24) + 'px'; f.style.top = (ay - 24) + 'px';
+      document.body.appendChild(f);
+      const anim = f.animate([
+        { transform: 'translate(0,0) scale(1) rotate(0)' },
+        { transform: `translate(${dx * 0.5}px, ${dy * 0.5 - 90}px) scale(1.25) rotate(-12deg)`, offset: 0.5 },
+        { transform: `translate(${dx}px, ${dy}px) scale(.85) rotate(0)` },
+      ], { duration: 520, easing: 'ease-in-out' });
+      anim.onfinish = () => { f.remove(); showBowl(id); res(); };
+    });
+  }
+
+  /* ---------- Scoring ---------- */
+  function changeHappy(d) {
+    S.happy = clamp(S.happy + d, 0, 100);
+    updateHUD();
+    if (S.happy <= 0 && !S.over) { S.over = true; setTimeout(gameOver, 900); }
+  }
+  function addScore(n) { S.score += n; S.dayScore += n; updateHUD(); }
+  function rightAnswer(viaPet) {
+    const r = S.req;
+    const mind = !r.revealed;
+    const pts = 10 + Math.round((r.left / r.total) * 10) + (mind ? 15 : 0);
+    S.stats.right++; if (mind) S.stats.mind++;
+    changeHappy(mind ? 17 : 12); addScore(pts);
+    resolveReq();
+    setTemp({ eyes: 'happy', mouth: 'idle', blush: 1 }, 2200);
+    floater(mind ? 'Mind reader!' : pick(['Purrfect!', 'Yum!', 'Mrrrow!', 'Happy cat!']), '+' + pts + ' purrs');
+    hearts(mind ? 9 : 6); chime(); purr(viaPet ? 2 : 1.6); buzzPhone(25);
+  }
+
+  /* ---------- Player actions ---------- */
+  function feed(id, btn) {
+    if (!S.running || S.paused || S.busy) return;
+    ensureAudio();
+    if (asleep()) {
+      S.stats.offtime++;
+      changeHappy(-6);
+      playCatAnim('wiggle', 500);
+      setTemp({ eyes: 'annoyed', mouth: 'frown' }, 1600);
+      floater('Woken up!', 'He was napping. −6', true);
+      meow('grump'); buzzPhone(60);
+      return;
+    }
+    S.busy = true;
+    flyToBowl(id, btn).then(() => {
+      const r = S.req;
+      if (!r) {
+        S.stats.offtime++;
+        changeHappy(-4);
+        playCatAnim('turn', 1000);
+        setTemp({ eyes: 'annoyed', mouth: 'frown' }, 1300);
+        floater('Not hungry yet', 'Wrong time. −4', true);
+        meow('grump');
+        setTimeout(() => { clearBowl(false); S.busy = false; }, 900);
+      } else if (r.item === id) {
+        S.chomp = true; playCatAnim('eat', 1550); chomp();
+        let n = 0;
+        const iv = setInterval(() => { S.chompOpen = !S.chompOpen; if (++n > 7) clearInterval(iv); }, 190);
+        clearBowl(false, true);
+        setTimeout(() => { S.chomp = false; S.busy = false; if (S.req) rightAnswer(false); }, 1550);
+      } else {
+        S.stats.wrong++;
+        r.left -= r.total * 0.15;
+        changeHappy(-8);
+        playCatAnim('turn', 1000);
+        setTemp({ eyes: 'annoyed', mouth: 'frown' }, 1300);
+        bubble.classList.remove('shake'); void bubble.offsetWidth; bubble.classList.add('shake');
+        floater('Hmph!', r.item === 'cuddle' ? 'He wants a cuddle. −8' : 'Not ' + ITEMS[id].name.toLowerCase() + '. −8', true);
+        meow('grump'); buzz(); buzzPhone(80);
+        setTimeout(() => { clearBowl(false); S.busy = false; }, 900);
+      }
+    });
+  }
+  function pet() {
+    if (!S.running || S.paused || S.busy) return;
+    ensureAudio();
+    const now = performance.now();
+    if (asleep()) {
+      S.stats.offtime++;
+      changeHappy(-6);
+      playCatAnim('wiggle', 500);
+      setTemp({ eyes: 'annoyed', mouth: 'frown' }, 1600);
+      floater('Woken up!', 'Let him sleep. −6', true);
+      meow('grump'); buzzPhone(60);
+    } else if (S.req && S.req.item === 'cuddle') {
+      playCatAnim('pet', 1200);
+      rightAnswer(true);
+    } else if (S.req) {
+      playCatAnim('wiggle', 500);
+      setTemp({ mouth: 'open' }, 400);
+      bubble.classList.remove('shake'); void bubble.offsetWidth; bubble.classList.add('shake');
+      floater('Mrrp?', 'He wants something else');
+      meow('ask');
+    } else {
+      playCatAnim('pet', 1200);
+      setTemp({ eyes: 'happy', blush: 1 }, 1400);
+      purr(1.2);
+      if (now - S.lastPet > 6000) { S.lastPet = now; changeHappy(2); hearts(3); floater('Purr', '+2 happiness'); }
+      else hearts(1);
+    }
+  }
+
+  /* ---------- Time and environment ---------- */
+  const WALL = [[7, '#f7d5c0'], [10, '#f3e3cf'], [13, '#cfe2e6'], [16, '#d9e5cf'], [18, '#f4cfa8'], [20, '#a99bc9'], [22, '#4d4f86'], [23, '#3c3f73']];
+  const SKY_T = [[7, '#ffb98f'], [9, '#8fcff2'], [16, '#7fc4ef'], [18.5, '#ff9e6e'], [20, '#6a5ca6'], [21.5, '#1e2552'], [23, '#141a40']];
+  const SKY_B = [[7, '#ffe6c8'], [9, '#d6f0ff'], [16, '#d2ecff'], [18.5, '#ffd39a'], [20, '#d39bb8'], [21.5, '#3a3b74'], [23, '#252a5c']];
+  const FLOOR = [[7, '#cc9d65'], [18, '#c4905a'], [21, '#8d6a54'], [23, '#6e5650']];
+  const NIGHT = [[7, 0], [18, 0], [20, 0.25], [21.5, 0.6], [23, 0.75]];
+  const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  function lerpStops(stops, h) {
+    if (h <= stops[0][0]) return stops[0][1];
+    for (let i = 1; i < stops.length; i++) {
+      if (h <= stops[i][0]) {
+        const [h0, a] = stops[i - 1], [h1, b] = stops[i], t = (h - h0) / (h1 - h0);
+        if (typeof a === 'number') return a + (b - a) * t;
+        const ca = hex(a), cb = hex(b);
+        return 'rgb(' + ca.map((v, k) => Math.round(v + (cb[k] - v) * t)).join(',') + ')';
+      }
+    }
+    return stops[stops.length - 1][1];
+  }
+  let lastEnv = 0, lastClock = '', lastPhase = '';
+  function fmtTime(h) {
+    const mins = Math.floor((h * 60) / 10) * 10;
+    let hh = Math.floor(mins / 60) % 24; const mm = mins % 60;
+    const ap = hh >= 12 ? 'PM' : 'AM'; hh = hh % 12 || 12;
+    return hh + ':' + String(mm).padStart(2, '0') + ' ' + ap;
+  }
+  function updateEnvironment(force) {
+    const now = performance.now();
+    if (!force && now - lastEnv < 180) return;
+    lastEnv = now;
+    const h = S.hour, st = document.documentElement.style;
+    st.setProperty('--wall', lerpStops(WALL, h));
+    st.setProperty('--sky-top', lerpStops(SKY_T, h));
+    st.setProperty('--sky-bot', lerpStops(SKY_B, h));
+    st.setProperty('--floor', lerpStops(FLOOR, h));
+    st.setProperty('--floor-2', lerpStops(FLOOR, h + 1.5));
+    st.setProperty('--night', String(lerpStops(NIGHT, h)));
+    const orb = $('orb');
+    const isMoon = h >= 19.5;
+    orb.classList.toggle('moon', isMoon);
+    const t = isMoon ? clamp((h - 19.5) / 4, 0, 1) : clamp((h - 7) / 12.5, 0, 1);
+    orb.style.left = (12 + t * 76) + '%';
+    orb.style.top = (78 - Math.sin(t * Math.PI) * 58) + '%';
+    const c = fmtTime(Math.min(h, DAY_END));
+    if (c !== lastClock) { lastClock = c; $('clockTime').textContent = c; }
+    const p = phaseAt(h).name;
+    if (p !== lastPhase) { lastPhase = p; $('clockPhase').textContent = p; }
+  }
+  function updateHUD() {
+    const v = Math.round(S.happy);
+    $('barFill').style.width = v + '%';
+    $('bar').classList.toggle('low', v < 30);
+    $('bar').setAttribute('aria-valuenow', v);
+    $('happyNum').textContent = v;
+    $('score').textContent = S.score;
+  }
+
+  let wasAsleep = false;
+  function tick(now) {
+    if (S && S.running && !S.paused) {
+      const dt = S.last == null ? 0 : Math.min(100, now - S.last);
+      S.hour += dt / HOUR_MS;
+      updateEnvironment(false);
+      if (S.req) {
+        if (!S.busy) S.req.left -= dt / HOUR_MS;
+        updateBubble();
+        if (S.req.left <= 0) {
+          const name = ITEMS[S.req.item].name;
+          S.stats.missed++;
+          resolveReq();
+          changeHappy(-15);
+          setTemp({ eyes: 'annoyed', mouth: 'frown' }, 2500);
+          playCatAnim('turn', 1000);
+          floater('Too slow!', 'He wanted ' + name.toLowerCase() + '. −15', true);
+          meow('grump'); buzzPhone(120);
+        }
+      } else if (!S.busy && S.slots.length && S.hour >= S.slots[0] && !phaseAt(S.hour).sleep) {
+        S.slots.shift();
+        startReq();
+      }
+      const sl = asleep();
+      if (sl !== wasAsleep) { wasAsleep = sl; if (sl) showZzz(); else if (!S.req) hideBubble(); }
+      if (S.hour >= DAY_END && !S.req && !S.busy) endDay();
+    }
+    if (S) { S.last = now; renderCat(now); }
+    requestAnimationFrame(tick);
+  }
+
+  /* ---------- Screens ---------- */
+  function openCard(html) { card.innerHTML = html; overlay.hidden = false; const b = card.querySelector('button'); if (b) b.focus({ preventScroll: true }); }
+  function closeCard() { overlay.hidden = true; card.innerHTML = ''; }
+  const heroCat = () => '<svg class="hero-cat catsvg" viewBox="0 0 300 320" data-eyes="happy" data-mouth="idle" data-blush="1" aria-hidden="true">' + cat.innerHTML.replace(/id="[^"]*"/g, '') + '</svg>';
+
+  function routineHTML() {
+    const cur = S && S.running ? phaseAt(S.hour).name : '';
+    const rows = PHASES.map((p) => {
+      const f = (x) => fmtTime(x).replace(':00', '').replace(' ', ' ');
+      const span = p.name === 'Bedtime' ? '10:30 PM' : f(p.from) + '–' + f(p.to);
+      return '<div class="' + (p.name === cur ? 'now' : '') + '"><b>' + span + '</b><span><strong>' + p.name + '</strong> · ' + p.note + '</span></div>';
+    }).join('');
+    return '<div class="routine">' + rows + '</div>' +
+      '<div class="clues">' +
+      '<span><i>Crunchy</i> → kibble</span><span><i>Soft, meaty, can</i> → pâté</span>' +
+      '<span><i>The sea, fishy</i> → salmon</span><span><i>Thirsty, dry</i> → water</span>' +
+      '<span><i>Good boy, snack</i> → treats</span><span><i>Funny tummy, green</i> → grass</span>' +
+      '<span><i>Notice me, love</i> → tap him</span></div>';
+  }
+  function showStart() {
+    const best = loadBest();
+    openCard(
+      '<span class="eyebrow">A fluffy British Shorthair</span>' +
+      '<h1>Mochi\'s Mealtime</h1>' + heroCat() +
+      '<p>Mochi is a round, white, very particular cat. Keep him happy from breakfast to bedtime.</p>' +
+      '<ul>' +
+      '<li>' + ICON.salmon + '<span>Read his thought bubble and tap the matching food before the ring runs out.</span></li>' +
+      '<li>' + ICON.kibble + '<span>Serve at the right time. Food he didn\'t ask for, or a snack during his nap, makes him grumpy.</span></li>' +
+      '<li>' + ICON.cuddle + '<span>When he says <b>"Notice me…"</b>, tap Mochi himself.</span></li>' +
+      '</ul>' +
+      (best ? '<p>Best so far: <b>' + best + ' purrs</b></p>' : '') +
+      '<button class="primary" id="go">Start Day 1</button>'
+    );
+    $('go').onclick = () => { ensureAudio(); S = freshState(); setupDay(); closeCard(); S.running = true; S.last = null; meow('happy'); };
+  }
+  function showRoutine() {
+    if (!S) return;
+    const wasRunning = S.running && !S.paused;
+    if (wasRunning) S.paused = true;
+    openCard('<span class="eyebrow">Stuck to the fridge</span><h2>Mochi\'s routine</h2>' + routineHTML() +
+      '<button class="primary" id="back">' + (wasRunning ? 'Back to Mochi' : 'Close') + '</button>');
+    $('back').onclick = () => { closeCard(); if (wasRunning) { S.paused = false; S.last = null; } else if (!S.running) showStart(); };
+  }
+  function showPause() {
+    openCard('<h2>Paused</h2><p>Mochi is waiting patiently. The clock is stopped.</p><button class="primary" id="resume">Resume</button>');
+    $('resume').onclick = () => { ensureAudio(); closeCard(); S.paused = false; S.last = null; };
+  }
+  function stars(n) { let s = ''; for (let i = 0; i < 3; i++) s += i < n ? ICON.star : ICON.starOff; return '<div class="stars">' + s + '</div>'; }
+  function endDay() {
+    S.running = false; hideBubble();
+    const st = S.stats, h = Math.round(S.happy);
+    const n = h >= 80 && st.missed === 0 ? 3 : h >= 55 ? 2 : 1;
+    if (S.score > loadBest()) saveBest(S.score);
+    const next = S.day + 1;
+    const tip = next === 2
+      ? 'Tomorrow Mochi gets subtle. His bubble starts as a clue and the picture appears later. Serve before it shows for a Mind Reader bonus.'
+      : next === 3 ? 'He asks for more now, and the picture takes even longer to appear. Check the routine if you get stuck.'
+      : 'Mochi gets a little less patient every day.';
+    openCard(
+      '<span class="eyebrow">Day ' + S.day + ' done · goodnight, Mochi</span><h2>' + (n === 3 ? 'One very happy cat' : n === 2 ? 'A contented cat' : 'A slightly grumpy cat') + '</h2>' +
+      stars(n) +
+      '<div class="stats"><span>Right food, right time</span><b>' + st.right + '</b>' +
+      '<span>Mind reader bonuses</span><b>' + st.mind + '</b>' +
+      '<span>Wrong food</span><b>' + st.wrong + '</b>' +
+      '<span>Off-schedule snacks and wake-ups</span><b>' + st.offtime + '</b>' +
+      '<span>Missed requests</span><b>' + st.missed + '</b>' +
+      '<span>Happiness</span><b>' + h + ' / 100</b>' +
+      '<span>Purrs today</span><b>' + S.dayScore + '</b></div>' +
+      '<p>' + tip + '</p>' +
+      '<button class="primary" id="next">Start Day ' + next + '</button>'
+    );
+    $('next').onclick = () => { S.day = next; S.happy = Math.min(100, S.happy + 10); setupDay(); closeCard(); S.running = true; S.last = null; meow('happy'); };
+  }
+  function gameOver() {
+    S.running = false; hideBubble(); clearBowl(true);
+    const best = Math.max(loadBest(), S.score); saveBest(best);
+    openCard(
+      '<span class="eyebrow">Day ' + S.day + ' · ' + fmtTime(S.hour) + '</span><h2>Mochi is sulking under the sofa</h2>' +
+      '<p>His happiness ran out. Check the routine card, watch the clock, and read his clues closely.</p>' +
+      '<div class="stats"><span>Total purrs</span><b>' + S.score + '</b><span>Best</span><b>' + best + '</b></div>' +
+      '<div class="row"><button class="secondary" id="rt">Routine</button><button class="primary" id="again">Try again</button></div>'
+    );
+    $('again').onclick = () => { closeCard(); S = freshState(); setupDay(); S.running = true; S.last = null; meow('happy'); };
+    $('rt').onclick = () => { card.querySelector('.row').insertAdjacentHTML('beforebegin', routineHTML()); $('rt').remove(); };
+  }
+
+  /* ---------- Wiring ---------- */
+  const foods = $('foods');
+  TRAY.forEach((id) => {
+    const b = document.createElement('button');
+    b.className = 'food'; b.type = 'button'; b.id = 'food-' + id;
+    b.innerHTML = ICON[id] + '<span>' + (id === 'pate' ? 'Pâté' : ITEMS[id].name) + '</span>';
+    b.setAttribute('aria-label', 'Serve ' + ITEMS[id].name);
+    b.addEventListener('click', () => feed(id, b));
+    foods.appendChild(b);
+  });
+  $('catBtn').addEventListener('click', pet);
+  $('routineBtn').addEventListener('click', showRoutine);
+  $('soundBtn').addEventListener('click', () => {
+    soundOn = !soundOn; ensureAudio();
+    $('soundWaves').style.display = soundOn ? '' : 'none';
+    $('soundBtn').setAttribute('aria-label', soundOn ? 'Sound on' : 'Sound off');
+    if (soundOn) meow('happy');
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && S && S.running && !S.paused && overlay.hidden) { S.paused = true; showPause(); }
+  });
+
+  window.claude?.hot?.snapshot?.(() => (S ? { S: Object.assign({}, S, { temp: null, busy: false, chomp: false, last: null }) } : {}));
+  function boot(data) {
+    if (data && data.S && data.S.running) {
+      S = Object.assign(freshState(), data.S);
+      $('dayPill').textContent = 'Day ' + S.day;
+      updateHUD(); updateEnvironment(true);
+      if (S.req) showBubble();
+      S.paused = true; showPause();
+    } else {
+      S = freshState(); S.slots = []; updateHUD(); updateEnvironment(true);
+      showStart();
+    }
+    requestAnimationFrame(tick);
+  }
+  window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.hot?.data ?? {});
+})();
+</script>
+</html>
